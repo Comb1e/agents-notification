@@ -1,0 +1,143 @@
+<Window x:Class="AgentNotifications.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Agent Notifications"
+        Width="920"
+        Height="720"
+        MinWidth="780"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PageBackgroundBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="82" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="58" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="White" BorderBrush="#D9DEE7" BorderThickness="0,0,0,1">
+            <Grid Margin="24,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Agent Notifications" FontSize="24" FontWeight="SemiBold" Foreground="#111827" />
+                    <TextBlock x:Name="StatusText" Text="Starting" Margin="0,5,0,0" Foreground="#4B5563" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="CountsText" Text="Pending 0  |  Failed 0" FontWeight="SemiBold" Foreground="#374151" />
+                    <TextBlock x:Name="AccessStatusText" Text="Notification access: unknown" Margin="0,5,0,0" HorizontalAlignment="Right" Foreground="#6B7280" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="1" Margin="20,18" Background="White" BorderBrush="#D9DEE7">
+            <TabItem Header="Feishu">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="28,24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Connection" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20" />
+                        <TextBlock Grid.Row="1" Text="Domain" VerticalAlignment="Center" />
+                        <ComboBox x:Name="DomainCombo" Grid.Row="1" Grid.Column="1" Margin="0,0,0,14" SelectedIndex="0">
+                            <ComboBoxItem Content="Feishu" Tag="feishu" />
+                            <ComboBoxItem Content="Lark" Tag="lark" />
+                        </ComboBox>
+                        <TextBlock Grid.Row="2" Text="App ID" VerticalAlignment="Center" />
+                        <TextBox x:Name="AppIdText" Grid.Row="2" Grid.Column="1" Margin="0,0,0,14" />
+                        <TextBlock Grid.Row="3" Text="App Secret" VerticalAlignment="Center" />
+                        <PasswordBox x:Name="AppSecretBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,14" />
+                        <TextBlock Grid.Row="4" Text="Recipient type" VerticalAlignment="Center" />
+                        <ComboBox x:Name="RecipientTypeCombo" Grid.Row="4" Grid.Column="1" Margin="0,0,0,14" SelectedIndex="0">
+                            <ComboBoxItem Content="Email" Tag="email" />
+                            <ComboBoxItem Content="Open ID" Tag="open_id" />
+                            <ComboBoxItem Content="User ID" Tag="user_id" />
+                            <ComboBoxItem Content="Union ID" Tag="union_id" />
+                            <ComboBoxItem Content="Chat ID" Tag="chat_id" />
+                        </ComboBox>
+                        <TextBlock Grid.Row="5" Text="Recipient" VerticalAlignment="Center" />
+                        <TextBox x:Name="RecipientText" Grid.Row="5" Grid.Column="1" Margin="0,0,0,14" />
+                        <TextBlock Grid.Row="6" Text="Health" VerticalAlignment="Center" />
+                        <TextBlock x:Name="FeishuHealthText" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center" Foreground="#4B5563" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Sources">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="28,24">
+                        <TextBlock Text="Monitored apps" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,18" />
+                        <CheckBox x:Name="ChatGPTCheck" Content="ChatGPT" Margin="0,0,0,12" />
+                        <CheckBox x:Name="QoderCheck" Content="Qoder" Margin="0,0,0,12" />
+                        <CheckBox x:Name="ZCodeCheck" Content="ZCode" Margin="0,0,0,22" />
+                        <TextBlock Text="Additional source rules" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBox x:Name="CustomRulesText"
+                                 Height="180"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 TextWrapping="NoWrap"
+                                 FontFamily="Consolas"
+                                 ToolTip="Name|exact|AppUserModelID or Name|regex|pattern" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Privacy">
+                <Grid Margin="28,24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Redaction patterns" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16" />
+                    <TextBox x:Name="RedactionText"
+                             Grid.Row="1"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap"
+                             FontFamily="Consolas" />
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="System">
+                <StackPanel Margin="28,24">
+                    <TextBlock Text="Runtime" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,18" />
+                    <CheckBox x:Name="MonitoringCheck" Content="Forward notifications" Margin="0,0,0,14" />
+                    <CheckBox x:Name="StartupCheck" Content="Start with Windows" Margin="0,0,0,22" />
+                    <WrapPanel Margin="0,0,0,22">
+                        <Button x:Name="GrantAccessButton" Content="Grant notification access" Click="GrantAccessButton_Click" />
+                        <Button x:Name="RetryFailedButton" Content="Retry failed deliveries" Click="RetryFailedButton_Click" />
+                    </WrapPanel>
+                    <TextBlock Text="Data directory" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBox x:Name="DataDirectoryText" IsReadOnly="True" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="#D9DEE7" BorderThickness="0,1,0,0">
+            <Grid Margin="20,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="FooterStatusText" VerticalAlignment="Center" Foreground="#4B5563" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="TestButton" Content="Send test" Click="TestButton_Click" />
+                    <Button x:Name="SaveButton" Content="Save" Click="SaveButton_Click" Background="#166534" Foreground="White" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
