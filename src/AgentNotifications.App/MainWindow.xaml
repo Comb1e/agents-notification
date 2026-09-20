@@ -6,6 +6,7 @@
         Height="720"
         MinWidth="780"
         MinHeight="620"
+        Icon="Assets/AppIcon.png"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource PageBackgroundBrush}">
     <Grid>

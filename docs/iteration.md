@@ -1,6 +1,37 @@
 # Iteration History
 
-## 0.1.2 - 2026-09-20
+## 0.1.3 - 2026-09-19
+
+### Previous Version Issue
+
+- The package and tray used generated placeholder icons instead of the supplied application artwork.
+
+### Root Cause
+
+- The asset generator drew a built-in bell and the tray explicitly used `SystemIcons.Information`.
+
+### Improvement
+
+- Added `icon/icon.png` as the source artwork.
+- Generate 44, 50, 150, and 256 pixel PNG assets with alpha and high-quality bicubic scaling.
+- Use the supplied artwork for the MSIX package, WPF window, and system tray.
+- Bumped the application and MSIX version to `0.1.3` / `0.1.3.0`.
+
+### Verification
+
+- Generated assets are 44, 50, 150, and 256 pixels square and retain PNG alpha.
+- `dotnet format AgentNotifications.sln --verify-no-changes --no-restore`: passed.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 45 passed, 0 failed.
+- Signed x64 MSIX `0.1.3.0` was created with a valid signature.
+- The installed package upgraded in place from `0.1.2.0` to `0.1.3.0` and reported status `Ok`.
+- Five package launch attempts produced exactly one running `AgentNotifications.App` process.
+
+### Remaining Issues
+
+- Windows can retain cached Start menu artwork briefly after an upgrade; signing out or rebuilding the icon cache refreshes stale shell thumbnails.
+
+## 0.1.2 - 2026-09-19
 
 ### Previous Version Issue
 
@@ -30,7 +61,7 @@
 
 - A forced process termination can interrupt an in-flight Feishu request; SQLite restart recovery returns that row to the retry queue.
 
-## 0.1.1 - 2026-09-20
+## 0.1.1 - 2026-09-19
 
 ### Previous Version Issue
 
