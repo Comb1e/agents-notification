@@ -34,6 +34,7 @@ public sealed class SettingsAndCardTests
 
         using var document = JsonDocument.Parse(builder.Build(record));
         var root = document.RootElement;
+        Assert.True(root.GetProperty("config").GetProperty("update_multi").GetBoolean());
         Assert.Equal("A😀…", root.GetProperty("header").GetProperty("title").GetProperty("content").GetString());
         var content = root.GetProperty("body").GetProperty("elements")[0].GetProperty("content").GetString();
         Assert.Contains(@"x\*…", content);

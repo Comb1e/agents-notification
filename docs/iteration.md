@@ -1,5 +1,34 @@
 # Iteration History
 
+## 0.1.1 - 2026-09-20
+
+### Previous Version Issue
+
+- Feishu rejected test delivery with error `300302` because the interactive card declared `config.update_multi` as `false`.
+
+### Root Cause
+
+- The card schema disabled multi-update behavior even though Agent Notifications updates a previously delivered card when the Windows toast content changes.
+
+### Improvement
+
+- Changed every generated card to declare `config.update_multi` as `true`.
+- Added a regression assertion that reads the serialized card JSON and requires the setting to remain enabled.
+- Bumped the application and MSIX version to `0.1.1` / `0.1.1.0`.
+
+### Verification
+
+- Automated card tests verify update support, markdown escaping, and Unicode-safe limits.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 44 passed, 0 failed.
+- Signed x64 MSIX `0.1.1.0` was created with a valid signature.
+- The installed package upgraded in place from `0.1.0.0` to `0.1.1.0`, reported status `Ok`, and was relaunched.
+
+### Remaining Issues
+
+- The corrected live Feishu test still needs to be triggered from the relaunched app to confirm tenant-side acceptance.
+- Real ChatGPT, Qoder, and ZCode delivery checks still require the installed package and Windows notification permission.
+
 ## 0.1.0 - 2026-09-19
 
 ### Previous State And Issues

@@ -19,7 +19,7 @@ public sealed class FeishuCardBuilder(RuntimeSettings settings)
         var card = new
         {
             schema = "2.0",
-            config = new { update_multi = false },
+            config = new { update_multi = true },
             header = new
             {
                 title = new { tag = "plain_text", content = title },
