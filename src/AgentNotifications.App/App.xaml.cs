@@ -1,3 +1,4 @@
+using AgentNotifications.App.Infrastructure;
 using AgentNotifications.App.Services;
 using System.Windows;
 using System.Windows.Threading;
@@ -9,6 +10,7 @@ public partial class App : System.Windows.Application
     private AppController? controller;
     private TrayService? tray;
     private MainWindow? settingsWindow;
+    private SingleInstanceCoordinator? singleInstance;
     private bool exiting;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -18,9 +20,22 @@ public partial class App : System.Windows.Application
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         try
         {
+            singleInstance = new SingleInstanceCoordinator();
+            if (!singleInstance.IsPrimary)
+            {
+                var signaled = await singleInstance.SignalPrimaryAsync();
+                await singleInstance.DisposeAsync();
+                singleInstance = null;
+                if (!signaled)
+                    System.Windows.MessageBox.Show("Agent Notifications is already running but could not open Settings.", "Agent Notifications", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Shutdown(signaled ? 0 : 1);
+                return;
+            }
+
             controller = await AppController.CreateAsync();
             settingsWindow = new MainWindow(controller);
             MainWindow = settingsWindow;
+            singleInstance.Start(() => Dispatcher.BeginInvoke(settingsWindow.ShowSettings));
             tray = new TrayService();
             tray.OpenSettingsRequested += (_, _) => Dispatcher.Invoke(() => settingsWindow.ShowSettings());
             tray.TogglePauseRequested += async (_, _) => await ToggleMonitoringAsync();
@@ -36,6 +51,8 @@ public partial class App : System.Windows.Application
         catch (Exception exception)
         {
             System.Windows.MessageBox.Show(exception.Message, "Agent Notifications", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (singleInstance is not null) await singleInstance.DisposeAsync();
+            singleInstance = null;
             Shutdown(1);
         }
     }
@@ -93,6 +110,8 @@ public partial class App : System.Windows.Application
         tray = null;
         if (controller is not null) await controller.DisposeAsync();
         controller = null;
+        if (singleInstance is not null) await singleInstance.DisposeAsync();
+        singleInstance = null;
         settingsWindow?.Close();
         Shutdown();
     }

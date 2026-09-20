@@ -1,5 +1,35 @@
 # Iteration History
 
+## 0.1.2 - 2026-09-20
+
+### Previous Version Issue
+
+- Every Start menu or package launch created another hidden tray process.
+- Concurrent instances opened the same SQLite database, registered duplicate notification listeners, and could forward the same toast more than once.
+
+### Root Cause
+
+- The WPF entry point had no per-user process ownership or activation forwarding.
+- A configured primary instance intentionally hides its Settings window, so a second launch appeared to do nothing while still creating another process.
+
+### Improvement
+
+- Added a per-user named mutex that permits one primary process.
+- Added a per-user named pipe so a secondary launch asks the primary process to open Settings, then exits.
+- Bumped the application and MSIX version to `0.1.2` / `0.1.2.0`.
+
+### Verification
+
+- Added a regression test that creates primary and secondary coordinators and verifies activation reaches only the primary instance.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 45 passed, 0 failed.
+- Signed x64 MSIX `0.1.2.0` was created with a valid signature and upgraded in place with package status `Ok`.
+- Five Start menu launch attempts produced exactly one running `AgentNotifications.App` process.
+
+### Remaining Issues
+
+- A forced process termination can interrupt an in-flight Feishu request; SQLite restart recovery returns that row to the retry queue.
+
 ## 0.1.1 - 2026-09-20
 
 ### Previous Version Issue
@@ -23,10 +53,10 @@
 - `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 44 passed, 0 failed.
 - Signed x64 MSIX `0.1.1.0` was created with a valid signature.
 - The installed package upgraded in place from `0.1.0.0` to `0.1.1.0`, reported status `Ok`, and was relaunched.
+- A live Feishu test delivery succeeded after the card update setting was corrected.
 
 ### Remaining Issues
 
-- The corrected live Feishu test still needs to be triggered from the relaunched app to confirm tenant-side acceptance.
 - Real ChatGPT, Qoder, and ZCode delivery checks still require the installed package and Windows notification permission.
 
 ## 0.1.0 - 2026-09-19

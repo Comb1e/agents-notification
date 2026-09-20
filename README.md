@@ -11,7 +11,7 @@ Agent Notifications is a Windows tray application that mirrors new Windows toast
 - Full title and body forwarding after configured regex redaction.
 - Durable SQLite delivery, one-second update coalescing, retries, and in-place Feishu card updates.
 
-Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.1.
+Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.2.
 
 ## Build And Test
 
@@ -87,7 +87,7 @@ The app obtains an internal tenant access token, sends interactive cards, and pa
 6. Select **Grant notification access** and approve the Windows prompt.
 7. Save. Closing the window leaves the tray application running.
 
-The tray menu provides Settings, Pause/Resume, Send test, Start with Windows, and Exit.
+The tray menu provides Settings, Pause/Resume, Send test, Start with Windows, and Exit. Launching Agent Notifications again opens Settings in the existing tray process instead of starting another listener.
 
 ## Default Source Rules
 
