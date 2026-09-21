@@ -9,6 +9,7 @@ public sealed class TextAndMatchingTests
     [InlineData("OpenAI.Codex_2p2nqsd0c76g0!App", "ChatGPT")]
     [InlineData("com.qoder.app", "Qoder")]
     [InlineData("electron.app.ZCode", "ZCode")]
+    [InlineData("dev.zcode.app", "ZCode")]
     public void Matches_supported_app_ids(string appId, string expected)
     {
         Assert.Equal(expected, Matcher().Match(appId));
@@ -18,6 +19,7 @@ public sealed class TextAndMatchingTests
     [InlineData("OpenAI.Codex_2p2nqsd0c76g0!CodexCoreCommandRunner")]
     [InlineData("com.qoder.app.beta")]
     [InlineData("electron.app.ZCode.helper")]
+    [InlineData("dev.zcode.app.helper")]
     public void Rejects_near_miss_app_ids(string appId)
     {
         Assert.Null(Matcher().Match(appId));
@@ -55,8 +57,8 @@ public sealed class TextAndMatchingTests
     }
 
     private static SourceMatcher Matcher() => new([
-        new SourceRuleSettings { Name = "ChatGPT", Pattern = "^OpenAI\\.Codex_[^!]+!App$", MatchMode = "regex", Enabled = true },
-        new SourceRuleSettings { Name = "Qoder", Pattern = "com.qoder.app", MatchMode = "exact", Enabled = true },
-        new SourceRuleSettings { Name = "ZCode", Pattern = "electron.app.ZCode", MatchMode = "exact", Enabled = true },
+        BuiltInSourceRules.CreateChatGpt(true),
+        BuiltInSourceRules.CreateQoder(true),
+        BuiltInSourceRules.CreateZCode(true),
     ]);
 }

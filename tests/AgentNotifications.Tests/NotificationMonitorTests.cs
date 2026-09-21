@@ -27,10 +27,10 @@ public sealed class NotificationMonitorTests : IAsyncLifetime
 
         source.Snapshot = [
             Toast("com.qoder.app", 1, now.AddMinutes(-1), "old"),
-            Toast("electron.app.ZCode", 1, now.AddSeconds(1), "new"),
+            Toast("dev.zcode.app", 1, now.AddSeconds(1), "new"),
         ];
         source.RaiseChanged();
-        var key = $"electron.app.ZCode\u001f1\u001f{now.AddSeconds(1).UtcTicks}";
+        var key = $"dev.zcode.app\u001f1\u001f{now.AddSeconds(1).UtcTicks}";
         await TestWait.UntilAsync(() => store.Get(key) is not null);
         Assert.Equal("new", store.Get(key)!.Title);
     }
@@ -159,9 +159,9 @@ public sealed class NotificationMonitorTests : IAsyncLifetime
     private static AppSettings Settings() => new()
     {
         SourceRules = [
-            new() { Name = "ChatGPT", Pattern = "^OpenAI\\.Codex_[^!]+!App$", MatchMode = "regex", Enabled = true },
-            new() { Name = "Qoder", Pattern = "com.qoder.app", MatchMode = "exact", Enabled = true },
-            new() { Name = "ZCode", Pattern = "electron.app.ZCode", MatchMode = "exact", Enabled = true },
+            BuiltInSourceRules.CreateChatGpt(true),
+            BuiltInSourceRules.CreateQoder(true),
+            BuiltInSourceRules.CreateZCode(true),
         ],
         Runtime = new RuntimeSettings { DebounceMilliseconds = 100, ReconcileSeconds = 60 },
     };

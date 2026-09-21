@@ -11,7 +11,7 @@ Agent Notifications is a Windows tray application that mirrors new Windows toast
 - Full title and body forwarding after configured regex redaction.
 - Durable SQLite delivery, one-second update coalescing, retries, and in-place Feishu card updates.
 
-Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.3.
+Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.4.
 
 ## Build And Test
 
@@ -95,7 +95,7 @@ The tray menu provides Settings, Pause/Resume, Send test, Start with Windows, an
 | --- | --- |
 | ChatGPT | Regex `^OpenAI\.Codex_[^!]+!App$` |
 | Qoder | Exact `com.qoder.app` |
-| ZCode | Exact `electron.app.ZCode` |
+| ZCode | Regex `^(?:electron\.app\.ZCode|dev\.zcode\.app)$` |
 
 ChatGPT identities containing `!CodexCoreCommandRunner` are always excluded. Additional exact or regex rules can be entered as `Name|exact|AppUserModelID` or `Name|regex|pattern`.
 

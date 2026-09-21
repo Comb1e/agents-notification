@@ -8,9 +8,6 @@ namespace AgentNotifications.App;
 
 public partial class MainWindow : Window
 {
-    private const string ChatGptPattern = "^OpenAI\\.Codex_[^!]+!App$";
-    private const string QoderPattern = "com.qoder.app";
-    private const string ZCodePattern = "electron.app.ZCode";
     private readonly AppController controller;
     private bool allowClose;
 
@@ -65,11 +62,11 @@ public partial class MainWindow : Window
         FeishuHealthText.Text = settings.Feishu.AppId.Length > 0 && settings.Feishu.Recipient.Length > 0
             ? "Configured - not tested"
             : "Not configured";
-        ChatGPTCheck.IsChecked = IsSourceEnabled(settings, "ChatGPT");
-        QoderCheck.IsChecked = IsSourceEnabled(settings, "Qoder");
-        ZCodeCheck.IsChecked = IsSourceEnabled(settings, "ZCode");
+        ChatGPTCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.ChatGptName);
+        QoderCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.QoderName);
+        ZCodeCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.ZCodeName);
         CustomRulesText.Text = string.Join(Environment.NewLine, settings.SourceRules
-            .Where(rule => rule.Name is not ("ChatGPT" or "Qoder" or "ZCode"))
+            .Where(rule => !BuiltInSourceRules.IsBuiltInName(rule.Name))
             .Select(rule => $"{rule.Name}|{rule.MatchMode}|{rule.Pattern}"));
         RedactionText.Text = string.Join(Environment.NewLine, settings.RedactionPatterns);
         MonitoringCheck.IsChecked = settings.MonitoringEnabled;
@@ -139,9 +136,9 @@ public partial class MainWindow : Window
     {
         var rules = new List<SourceRuleSettings>
         {
-            new() { Name = "ChatGPT", Pattern = ChatGptPattern, MatchMode = "regex", Enabled = ChatGPTCheck.IsChecked == true },
-            new() { Name = "Qoder", Pattern = QoderPattern, MatchMode = "exact", Enabled = QoderCheck.IsChecked == true },
-            new() { Name = "ZCode", Pattern = ZCodePattern, MatchMode = "exact", Enabled = ZCodeCheck.IsChecked == true },
+            BuiltInSourceRules.CreateChatGpt(ChatGPTCheck.IsChecked == true),
+            BuiltInSourceRules.CreateQoder(QoderCheck.IsChecked == true),
+            BuiltInSourceRules.CreateZCode(ZCodeCheck.IsChecked == true),
         };
         foreach (var line in Lines(CustomRulesText.Text))
         {
@@ -185,7 +182,8 @@ public partial class MainWindow : Window
         Hide();
     }
 
-    private static bool IsSourceEnabled(AppSettings settings, string name) => settings.SourceRules.FirstOrDefault(rule => rule.Name == name)?.Enabled == true;
+    private static bool IsSourceEnabled(AppSettings settings, string name) => settings.SourceRules
+        .FirstOrDefault(rule => rule.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.Enabled == true;
 
     private static IEnumerable<string> Lines(string value) => value
         .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

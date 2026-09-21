@@ -23,8 +23,8 @@
     },
     {
       "name": "ZCode",
-      "pattern": "electron.app.ZCode",
-      "matchMode": "exact",
+      "pattern": "^(?:electron\\.app\\.ZCode|dev\\.zcode\\.app)$",
+      "matchMode": "regex",
       "enabled": true
     }
   ],

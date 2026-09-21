@@ -24,6 +24,60 @@ public sealed class SettingsAndCardTests
     }
 
     [Fact]
+    public async Task Migrates_and_persists_legacy_zcode_source_rule()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "agent-notifications-settings-tests", Guid.NewGuid().ToString("N"));
+        var paths = new AppPaths(
+            directory,
+            Path.Combine(directory, "config.json"),
+            Path.Combine(directory, "secrets.dat"),
+            Path.Combine(directory, "deliveries.db"),
+            Path.Combine(directory, "logs"));
+        try
+        {
+            var store = new SettingsStore(paths, Path.Combine(directory, "unused-defaults.json"));
+            var settings = ValidSettings();
+            settings.SourceRules =
+            [
+                new SourceRuleSettings
+                {
+                    Name = "ZCode",
+                    Pattern = BuiltInSourceRules.ZCodeLegacyPattern,
+                    MatchMode = "exact",
+                    Enabled = false,
+                },
+            ];
+            await store.SaveAsync(settings);
+
+            var migrated = await store.LoadAsync();
+
+            var rule = Assert.Single(migrated.SourceRules);
+            Assert.Equal(BuiltInSourceRules.ZCodePattern, rule.Pattern);
+            Assert.Equal("regex", rule.MatchMode);
+            Assert.False(rule.Enabled);
+            var persisted = await File.ReadAllTextAsync(paths.SettingsPath);
+            Assert.Contains(BuiltInSourceRules.ZCodePattern.Replace("\\", "\\\\"), persisted, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void Does_not_replace_custom_zcode_source_rule()
+    {
+        var rules = new List<SourceRuleSettings>
+        {
+            new() { Name = "ZCode", Pattern = "custom.zcode.app", MatchMode = "exact", Enabled = true },
+        };
+
+        Assert.False(BuiltInSourceRules.MigrateLegacy(rules));
+        Assert.Equal("custom.zcode.app", rules[0].Pattern);
+        Assert.Equal("exact", rules[0].MatchMode);
+    }
+
+    [Fact]
     public void Card_escapes_markdown_and_respects_rune_limits()
     {
         var now = DateTimeOffset.Parse("2026-09-19T12:00:00Z");

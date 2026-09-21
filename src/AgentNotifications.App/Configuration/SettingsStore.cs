@@ -24,11 +24,18 @@ public sealed class SettingsStore
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(paths.DataDirectory);
-        var path = File.Exists(paths.SettingsPath) ? paths.SettingsPath : defaultsPath;
-        await using var stream = File.OpenRead(path);
-        var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken)
-            ?? throw new InvalidDataException("Settings file is empty");
+        var hasStoredSettings = File.Exists(paths.SettingsPath);
+        var path = hasStoredSettings ? paths.SettingsPath : defaultsPath;
+        AppSettings settings;
+        await using (var stream = File.OpenRead(path))
+        {
+            settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken)
+                ?? throw new InvalidDataException("Settings file is empty");
+        }
+
+        var migrated = BuiltInSourceRules.MigrateLegacy(settings.SourceRules);
         Validate(settings);
+        if (hasStoredSettings && migrated) await SaveAsync(settings, cancellationToken);
         return settings;
     }
 

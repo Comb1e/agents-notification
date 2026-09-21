@@ -1,5 +1,47 @@
 # Iteration History
 
+## 0.1.4 - 2026-09-21
+
+### Previous Version Issue
+
+- Notifications from the current ZCode desktop registration did not reach Feishu.
+- ChatGPT, Qoder, Feishu test delivery, retries, and older ZCode notifications continued to work.
+
+### Root Cause
+
+- ZCode changed its registered AppUserModelID from `electron.app.ZCode` to `dev.zcode.app`.
+- The built-in ZCode rule was an exact match for only the older identity, so the listener filtered current ZCode notifications before persistence and delivery.
+- Existing user settings retained that legacy exact rule across MSIX upgrades.
+
+### Improvement
+
+- Match both known ZCode desktop identities with the anchored regex `^(?:electron\.app\.ZCode|dev\.zcode\.app)$`.
+- Persistently migrate only the legacy built-in exact rule during settings load while preserving its enabled state.
+- Centralize built-in source-rule construction so Settings cannot restore the stale identity.
+- Bumped the application and MSIX version to `0.1.4` / `0.1.4.1`.
+
+### Verification
+
+- `Get-StartApps` independently confirmed the installed ZCode registration is `dev.zcode.app`.
+- `dotnet format AgentNotifications.sln --verify-no-changes --no-restore`: passed.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 49 passed, 0 failed.
+- Tests cover current and legacy ZCode IDs, anchored near-miss rejection, monitor enqueueing, persistent migration, disabled-state preservation, and custom-rule preservation.
+- Signed x64 MSIX `0.1.4.1` was created with a valid signature and upgraded the installed package in place with status `Ok`.
+- The installed app persisted the migrated ZCode regex and remained one process after five launch attempts.
+- A new Windows toast submitted under the registered `dev.zcode.app` identity traversed the installed listener and completed Feishu delivery as source `ZCode`.
+
+### Remaining Issues
+
+- A future ZCode identity change will require another explicit rule update or a user-defined source rule.
+- The end-to-end check used a controlled toast under ZCode's registered identity; a vendor-authored toast still requires a ZCode agent task to finish after the upgraded listener has started.
+
+### References Used
+
+- Local Windows `Get-StartApps` registration reported ZCode as `dev.zcode.app` on September 21, 2026.
+- Existing metadata-only delivery logs confirmed successful legacy ZCode deliveries under `electron.app.ZCode` and healthy ChatGPT/Qoder/Feishu delivery behavior. No notification content or secrets were inspected.
+- No external project or academic paper was needed for this compatibility fix.
+
 ## 0.1.3 - 2026-09-19
 
 ### Previous Version Issue
