@@ -25,6 +25,24 @@ flowchart LR
 - `FeishuClient` owns tenant tokens and typed HTTP errors.
 - `AppController` connects the tray, Settings window, listener, queue, and storage.
 
+## Application Startup
+
+```mermaid
+flowchart TD
+    A[Windows login or user launch] --> B{Acquire LocalState file lock}
+    B -- no --> C[Append activation signal and exit]
+    C --> D[Primary opens Settings]
+    B -- yes --> E[Create controller and tray]
+    E --> F{Notification snapshot completes in 10 seconds?}
+    F -- yes --> G[Baseline existing toasts]
+    G --> H[Watching]
+    F -- no --> I[Retrying with tray alive]
+    I --> J[Timed reconciliation]
+    J --> F
+```
+
+The file lock is shared by every packaged activation for the signed-in user, including the login startup task. This avoids relying on process-local packaged object namespaces. A secondary launch appends a small activation record in the same LocalState directory; the primary polls that record and opens Settings. Notification reads are canceled after the configured timeout so unavailable Windows services cannot block startup indefinitely. Recovery still compares toast creation time with the original startup cutoff, preventing historical replay.
+
 ## Data Flow
 
 ```mermaid
@@ -81,6 +99,7 @@ stateDiagram-v2
 - `Watching` handles change events and also reconciles the full snapshot every 15 seconds.
 - `PermissionDenied` is entered when access is missing or revoked.
 - `Retrying` keeps the app alive after a temporary listener read failure.
+- A failed or timed-out initial baseline enters `Retrying`; the tray and delivery queue remain available while reconciliation retries.
 
 ## Delivery State
 

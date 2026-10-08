@@ -25,11 +25,14 @@ internal sealed class FakeNotificationSource : IWindowsNotificationSource
 
     public IReadOnlyList<WindowsToast> Snapshot { get; set; } = [];
 
+    public Func<CancellationToken, Task<IReadOnlyList<WindowsToast>>>? SnapshotHandler { get; set; }
+
     public NotificationAccess GetAccessStatus() => Access;
 
     public Task<NotificationAccess> RequestAccessAsync() => Task.FromResult(Access);
 
-    public Task<IReadOnlyList<WindowsToast>> GetSnapshotAsync(CancellationToken cancellationToken) => Task.FromResult(Snapshot);
+    public Task<IReadOnlyList<WindowsToast>> GetSnapshotAsync(CancellationToken cancellationToken) =>
+        SnapshotHandler?.Invoke(cancellationToken) ?? Task.FromResult(Snapshot);
 
     public void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
 }

@@ -59,6 +59,8 @@ public sealed class SettingsStore
         if (settings.Feishu.Domain is not ("feishu" or "lark")) throw new InvalidDataException("Feishu domain must be feishu or lark");
         if (settings.Feishu.RecipientType is not ("email" or "open_id" or "user_id" or "union_id" or "chat_id"))
             throw new InvalidDataException("Unsupported recipient type");
+        if (settings.Runtime.NotificationReadTimeoutMilliseconds is < 100 or > 60_000)
+            throw new InvalidDataException("Invalid notification read timeout");
         if (settings.Runtime.DebounceMilliseconds is < 100 or > 30_000) throw new InvalidDataException("Invalid debounce interval");
         if (settings.Runtime.ReconcileSeconds is < 2 or > 300) throw new InvalidDataException("Invalid reconciliation interval");
         if (settings.Runtime.DispatcherPollMilliseconds is < 50 or > 30_000) throw new InvalidDataException("Invalid dispatcher poll interval");

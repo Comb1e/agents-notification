@@ -66,9 +66,10 @@ public sealed class NotificationMonitor : IAsyncDisposable
         baselineCutoff = clock.UtcNow;
         baselining = true;
         source.Changed += OnSourceChanged;
+        var baselineSucceeded = false;
         try
         {
-            var snapshot = await source.GetSnapshotAsync(cancellationToken);
+            var snapshot = await GetSnapshotAsync(cancellationToken);
             tracked.Clear();
             var normalized = Normalize(snapshot);
             foreach (var notification in normalized)
@@ -77,12 +78,16 @@ public sealed class NotificationMonitor : IAsyncDisposable
                 tracked[notification.Key] = new TrackedToast(notification.ContentHash, suppressed);
                 if (!suppressed) Enqueue(notification);
             }
+
+            baselineSucceeded = true;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch { MoveTo(ListenerState.Retrying); }
         finally { baselining = false; }
 
         loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         loopTask = ReconcileLoopAsync(loopCancellation.Token);
-        MoveTo(ListenerState.Watching);
+        if (baselineSucceeded) MoveTo(ListenerState.Watching);
         if (Interlocked.Exchange(ref reconcileRequested, 0) == 1) await ReconcileSafeAsync(loopCancellation.Token);
     }
 
@@ -160,7 +165,7 @@ public sealed class NotificationMonitor : IAsyncDisposable
 
     private async Task ReconcileAsync(CancellationToken cancellationToken)
     {
-        var normalized = Normalize(await source.GetSnapshotAsync(cancellationToken));
+        var normalized = Normalize(await GetSnapshotAsync(cancellationToken));
         var current = normalized.Select(notification => notification.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var notification in normalized)
         {
@@ -185,6 +190,13 @@ public sealed class NotificationMonitor : IAsyncDisposable
         }
 
         foreach (var key in tracked.Keys.Where(key => !current.Contains(key)).ToArray()) tracked.Remove(key);
+    }
+
+    private async Task<IReadOnlyList<WindowsToast>> GetSnapshotAsync(CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMilliseconds(settings().Runtime.NotificationReadTimeoutMilliseconds));
+        return await source.GetSnapshotAsync(timeout.Token);
     }
 
     private IReadOnlyList<ObservedNotification> Normalize(IReadOnlyList<WindowsToast> snapshot)

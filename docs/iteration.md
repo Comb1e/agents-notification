@@ -1,5 +1,46 @@
 # Iteration History
 
+## 0.1.5 - 2026-10-07
+
+### Previous Version Issue
+
+- The enabled packaged startup task created the process at Windows sign-in, but notification initialization could block before the listener reached `Watching`.
+- Separate packaged activations could also bypass the named-mutex ownership check and leave more than one process waiting on the same startup path.
+
+### Root Cause
+
+- The first `GetNotificationsAsync` call had no effective cancellation boundary. Windows notification services are not guaranteed to be ready when login startup apps begin.
+- An initial snapshot failure escaped application initialization and stopped the tray instead of using the listener state machine's existing `Retrying` path.
+- The per-user named mutex and pipe were not a reliable shared boundary across the desktop AppX activation containers observed on this Windows installation.
+
+### Improvement
+
+- Bound every notification snapshot to the configurable `notificationReadTimeoutMilliseconds` value, defaulting to ten seconds, and pass cancellation into the WinRT operation.
+- Keep the tray and delivery queue alive after an initial read failure, transition `Baselining -> Retrying`, and retry through normal reconciliation.
+- Preserve the original startup cutoff during recovery so old Action Center entries remain suppressed.
+- Replace named-kernel-object coordination with a LocalState file lock and append-only activation signal shared by packaged launches.
+- Bumped the application and MSIX version to `0.1.5` / `0.1.5.1`.
+
+### Verification
+
+- Release solution build passed with zero warnings and zero errors.
+- Focused notification-monitor and single-instance tests passed: 10 passed, 0 failed. Focused settings and card tests passed: 5 passed, 0 failed.
+- Tests cover the original successful baseline, a failed initial snapshot followed by recovery, no historical replay during recovery, a permanently blocked read timing out, timeout validation boundaries, and secondary activation reaching only the primary instance.
+- Signed x64 MSIX `0.1.5.1` was created with a valid signature and upgraded the installed package in place with status `Ok`.
+- The existing Windows startup task remained enabled after upgrade. Directly launching the installed executable declared by that task reached `Watching` and wrote `application.started` against packaged LocalState.
+- Five additional package activations produced exactly one responsive process and opened Settings in the primary instance.
+
+### Remaining Issues
+
+- A complete startup-task launch still depends on Windows enabling the task for the signed-in user.
+- Sign-in itself cannot be automated in the test suite; the retry path is exercised with a cancellation-aware fake source and the installed packaged activation is checked separately.
+
+### References Used
+
+- Microsoft [Notification listener](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/notification-listener), rechecked for access-status, snapshot, and foreground change-event behavior.
+- Local AppModel runtime events and packaged LocalState logs from October 1-7, 2026 showed Windows creating the process while application initialization did not reach its startup log.
+- No external project or academic paper was needed for this lifecycle fix.
+
 ## 0.1.4 - 2026-09-21
 
 ### Previous Version Issue

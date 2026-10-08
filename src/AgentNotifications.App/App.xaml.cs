@@ -1,3 +1,4 @@
+using AgentNotifications.App.Configuration;
 using AgentNotifications.App.Infrastructure;
 using AgentNotifications.App.Services;
 using System.Windows;
@@ -20,7 +21,8 @@ public partial class App : System.Windows.Application
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         try
         {
-            singleInstance = new SingleInstanceCoordinator();
+            var openSettingsRequested = false;
+            singleInstance = new SingleInstanceCoordinator(sharedDirectory: AppPaths.Resolve().DataDirectory);
             if (!singleInstance.IsPrimary)
             {
                 var signaled = await singleInstance.SignalPrimaryAsync();
@@ -32,10 +34,14 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            singleInstance.Start(() => Dispatcher.BeginInvoke(() =>
+            {
+                if (settingsWindow is null) openSettingsRequested = true;
+                else settingsWindow.ShowSettings();
+            }));
             controller = await AppController.CreateAsync();
             settingsWindow = new MainWindow(controller);
             MainWindow = settingsWindow;
-            singleInstance.Start(() => Dispatcher.BeginInvoke(settingsWindow.ShowSettings));
             tray = new TrayService();
             tray.OpenSettingsRequested += (_, _) => Dispatcher.Invoke(() => settingsWindow.ShowSettings());
             tray.TogglePauseRequested += async (_, _) => await ToggleMonitoringAsync();
@@ -46,7 +52,8 @@ public partial class App : System.Windows.Application
             controller.CountsChanged += (_, _) => Dispatcher.Invoke(UpdateTray);
             await controller.InitializeAsync();
             UpdateTray();
-            if (!controller.Settings.IsConfigured || string.IsNullOrWhiteSpace(controller.Secret)) settingsWindow.ShowSettings();
+            if (openSettingsRequested || !controller.Settings.IsConfigured || string.IsNullOrWhiteSpace(controller.Secret))
+                settingsWindow.ShowSettings();
         }
         catch (Exception exception)
         {

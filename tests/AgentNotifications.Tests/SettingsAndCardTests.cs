@@ -16,11 +16,20 @@ public sealed class SettingsAndCardTests
     }
 
     [Fact]
-    public void Rejects_out_of_range_runtime_values()
+    public void Validates_notification_read_timeout_boundaries()
     {
         var settings = ValidSettings();
-        settings.Runtime.DispatcherPollMilliseconds = 0;
-        Assert.Throws<InvalidDataException>(() => SettingsStore.Validate(settings));
+        foreach (var value in new[] { 100, 60_000 })
+        {
+            settings.Runtime.NotificationReadTimeoutMilliseconds = value;
+            SettingsStore.Validate(settings);
+        }
+
+        foreach (var value in new[] { 99, 60_001 })
+        {
+            settings.Runtime.NotificationReadTimeoutMilliseconds = value;
+            Assert.Throws<InvalidDataException>(() => SettingsStore.Validate(settings));
+        }
     }
 
     [Fact]

@@ -22,7 +22,7 @@ public sealed class WindowsNotificationSource : IWindowsNotificationSource, IDis
     public async Task<IReadOnlyList<WindowsToast>> GetSnapshotAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var notifications = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+        var notifications = await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask(cancellationToken);
         var result = new List<WindowsToast>();
         foreach (var notification in notifications)
         {

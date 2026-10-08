@@ -48,6 +48,8 @@ public sealed class SourceRuleSettings
 
 public sealed class RuntimeSettings
 {
+    public int NotificationReadTimeoutMilliseconds { get; set; } = 10_000;
+
     public int DebounceMilliseconds { get; set; } = 1_000;
 
     public int ReconcileSeconds { get; set; } = 15;

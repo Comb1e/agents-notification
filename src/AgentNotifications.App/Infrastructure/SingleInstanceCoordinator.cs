@@ -1,22 +1,46 @@
-using System.IO.Pipes;
 using System.Security.Principal;
 
 namespace AgentNotifications.App.Infrastructure;
 
 public sealed class SingleInstanceCoordinator : IAsyncDisposable
 {
-    private readonly Mutex mutex;
-    private readonly string pipeName;
+    private readonly FileStream? instanceLock;
+    private readonly FileStream? activationReader;
+    private readonly string activationPath;
     private readonly CancellationTokenSource cancellation = new();
     private Task? listener;
+    private long activationOffset;
 
-    public SingleInstanceCoordinator(string applicationId = "Comb1e.AgentNotifications")
+    public SingleInstanceCoordinator(string applicationId = "Comb1e.AgentNotifications", string? sharedDirectory = null)
     {
         var userId = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
         var suffix = TextTools.Sha256($"{applicationId}\u001f{userId}")[..24];
-        pipeName = $"{applicationId}.{suffix}.Activation";
-        mutex = new Mutex(false, $"Local\\{applicationId}.{suffix}.Mutex", out var createdNew);
-        IsPrimary = createdNew;
+        var directory = sharedDirectory ?? Path.Combine(Path.GetTempPath(), "AgentNotifications", suffix);
+        Directory.CreateDirectory(directory);
+        var lockPath = Path.Combine(directory, $".{suffix}.instance.lock");
+        activationPath = Path.Combine(directory, $".{suffix}.activation");
+
+        FileStream? reader = null;
+        try
+        {
+            reader = new FileStream(
+                activationPath,
+                FileMode.OpenOrCreate,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 1,
+                FileOptions.Asynchronous);
+            activationOffset = reader.Length;
+            instanceLock = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            activationReader = reader;
+            IsPrimary = true;
+        }
+        catch (IOException)
+        {
+            reader?.Dispose();
+            instanceLock?.Dispose();
+            IsPrimary = false;
+        }
     }
 
     public bool IsPrimary { get; }
@@ -24,6 +48,7 @@ public sealed class SingleInstanceCoordinator : IAsyncDisposable
     public void Start(Action onActivation)
     {
         if (!IsPrimary) throw new InvalidOperationException("Only the primary instance can listen for activation");
+        ArgumentNullException.ThrowIfNull(onActivation);
         listener ??= ListenAsync(onActivation, cancellation.Token);
     }
 
@@ -35,20 +60,23 @@ public sealed class SingleInstanceCoordinator : IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
-                await client.ConnectAsync(250, cancellationToken);
-                await client.WriteAsync(new byte[] { 1 }, cancellationToken);
-                await client.FlushAsync(cancellationToken);
+                await using var stream = new FileStream(
+                    activationPath,
+                    FileMode.Append,
+                    FileAccess.Write,
+                    FileShare.ReadWrite | FileShare.Delete,
+                    bufferSize: 64,
+                    FileOptions.Asynchronous);
+                var signal = Guid.NewGuid().ToByteArray();
+                await stream.WriteAsync(signal, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
                 return true;
-            }
-            catch (TimeoutException)
-            {
             }
             catch (IOException)
             {
             }
 
-            await Task.Delay(50, cancellationToken);
+            await Task.Delay(100, cancellationToken);
         }
 
         return false;
@@ -64,32 +92,29 @@ public sealed class SingleInstanceCoordinator : IAsyncDisposable
         }
 
         cancellation.Dispose();
-        mutex.Dispose();
+        activationReader?.Dispose();
+        instanceLock?.Dispose();
     }
 
     private async Task ListenAsync(Action onActivation, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        if (activationReader is null) return;
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        while (await timer.WaitForNextTickAsync(cancellationToken))
         {
             try
             {
-                await using var server = new NamedPipeServerStream(
-                    pipeName,
-                    PipeDirection.In,
-                    1,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
-                await server.WaitForConnectionAsync(cancellationToken);
-                var buffer = new byte[1];
-                if (await server.ReadAsync(buffer, cancellationToken) > 0) onActivation();
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                break;
+                var length = activationReader.Length;
+                if (length <= activationOffset) continue;
+                activationReader.Position = activationOffset;
+                var buffer = new byte[Math.Min(4096, length - activationOffset)];
+                var read = await activationReader.ReadAsync(buffer, cancellationToken);
+                if (read <= 0) continue;
+                activationOffset += read;
+                onActivation();
             }
             catch (IOException) when (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(100, cancellationToken);
             }
         }
     }

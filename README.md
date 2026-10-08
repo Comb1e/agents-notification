@@ -11,7 +11,7 @@ Agent Notifications is a Windows tray application that mirrors new Windows toast
 - Full title and body forwarding after configured regex redaction.
 - Durable SQLite delivery, one-second update coalescing, retries, and in-place Feishu card updates.
 
-Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.4.
+Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.5.
 
 ## Build And Test
 
@@ -137,6 +137,8 @@ Open Windows Settings, find notification access/privacy controls for Agent Notif
 **Startup is unavailable**
 
 Windows can disable a startup task after the user rejects it. Re-enable Agent Notifications in Windows startup-app settings, then toggle **Start with Windows** again.
+
+At sign-in, Windows notification services can take time to become ready. Agent Notifications remains in the tray as `Retrying`, limits each notification read to ten seconds, and resumes watching without replaying notifications that predate app startup. If the process is absent, confirm the startup task is enabled and reinstall the latest MSIX.
 
 ## Design References
 

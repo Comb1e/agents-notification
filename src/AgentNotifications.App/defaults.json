@@ -30,6 +30,7 @@
   ],
   "redactionPatterns": [],
   "runtime": {
+    "notificationReadTimeoutMilliseconds": 10000,
     "debounceMilliseconds": 1000,
     "reconcileSeconds": 15,
     "dispatcherPollMilliseconds": 500,

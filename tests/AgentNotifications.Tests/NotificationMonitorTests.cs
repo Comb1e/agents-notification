@@ -143,6 +143,56 @@ public sealed class NotificationMonitorTests : IAsyncLifetime
         await TestWait.UntilAsync(() => monitor.State == ListenerState.PermissionDenied);
     }
 
+    [Fact]
+    public async Task Retries_failed_initial_snapshot_without_replaying_old_notifications()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var source = new FakeNotificationSource
+        {
+            SnapshotHandler = _ => throw new IOException("Notification service is not ready"),
+        };
+        var clock = new FakeClock(now);
+        store = new DeliveryStore(Path.Combine(directory, "deliveries.db"));
+        monitor = new NotificationMonitor(source, store, () => Settings(), clock);
+
+        await monitor.StartAsync(false);
+        Assert.Equal(ListenerState.Retrying, monitor.State);
+
+        source.SnapshotHandler = null;
+        source.Snapshot = [
+            Toast("com.qoder.app", 10, now.AddMinutes(-1), "old"),
+            Toast("dev.zcode.app", 11, now.AddSeconds(1), "new"),
+        ];
+        source.RaiseChanged();
+
+        var newKey = $"dev.zcode.app\u001f11\u001f{now.AddSeconds(1).UtcTicks}";
+        await TestWait.UntilAsync(() => monitor.State == ListenerState.Watching && store.Get(newKey) is not null);
+        Assert.Equal(1, store.GetCounts().Pending);
+    }
+
+    [Fact]
+    public async Task Times_out_blocked_initial_snapshot_and_keeps_monitor_alive()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var source = new FakeNotificationSource
+        {
+            SnapshotHandler = async cancellationToken =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return [];
+            },
+        };
+        var settings = Settings();
+        settings.Runtime.NotificationReadTimeoutMilliseconds = 100;
+        var clock = new FakeClock(now);
+        store = new DeliveryStore(Path.Combine(directory, "deliveries.db"));
+        monitor = new NotificationMonitor(source, store, () => settings, clock);
+
+        await monitor.StartAsync(false).WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(ListenerState.Retrying, monitor.State);
+    }
+
     public Task InitializeAsync()
     {
         Directory.CreateDirectory(directory);
