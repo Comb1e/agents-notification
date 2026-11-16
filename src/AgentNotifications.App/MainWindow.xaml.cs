@@ -18,6 +18,7 @@ public partial class MainWindow : Window
         LoadSettings();
         controller.StateChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
         controller.CountsChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
+        controller.GrokSessionsChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
         controller.StatusChanged += (_, status) => Dispatcher.Invoke(() => FooterStatusText.Text = status);
         Closing += OnClosing;
     }
@@ -49,6 +50,11 @@ public partial class MainWindow : Window
         };
         CountsText.Text = $"Pending {controller.Counts.Pending}  |  Failed {controller.Counts.Failed}";
         AccessStatusText.Text = $"Notification access: {controller.NotificationAccess}";
+        var grok = controller.GrokSessions;
+        GrokSessionsText.Text = !controller.Settings.GrokNotificationsEnabled ? "Grok notifications disabled"
+            : !controller.Settings.MonitoringEnabled ? "Grok notifications paused"
+            : grok.OpenSessions > 0 ? $"{grok.OpenSessions} open sessions · {grok.Processes} processes"
+            : "Watching for Grok sessions";
     }
 
     private void LoadSettings()
@@ -121,6 +127,7 @@ public partial class MainWindow : Window
             MonitoringEnabled = MonitoringCheck.IsChecked == true,
             StartWithWindows = StartupCheck.IsChecked == true,
             GrokNotificationsEnabled = GrokCheck.IsChecked == true,
+            GrokHomeDirectories = current.GrokHomeDirectories.ToList(),
             Feishu = new FeishuSettings
             {
                 Domain = SelectedTag(DomainCombo),

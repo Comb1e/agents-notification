@@ -3,6 +3,7 @@
   "monitoringEnabled": true,
   "startWithWindows": false,
   "grokNotificationsEnabled": true,
+  "grokHomeDirectories": [],
   "feishu": {
     "domain": "feishu",
     "appId": "",

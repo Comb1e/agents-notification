@@ -84,7 +84,8 @@
                         <CheckBox x:Name="ChatGPTCheck" Content="ChatGPT" Margin="0,0,0,12" />
                         <CheckBox x:Name="QoderCheck" Content="Qoder" Margin="0,0,0,12" />
                         <CheckBox x:Name="ZCodeCheck" Content="ZCode" Margin="0,0,0,14" />
-                        <CheckBox x:Name="GrokCheck" Content="Grok Build CLI (Windows + Feishu)" Margin="0,0,0,22" />
+                        <CheckBox x:Name="GrokCheck" Content="Grok Build CLI (Windows + Feishu)" Margin="0,0,0,6" />
+                        <TextBlock x:Name="GrokSessionsText" Text="Discovering Grok sessions" Foreground="#6B7280" Margin="18,0,0,22" />
                         <TextBlock Text="Additional source rules" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <TextBox x:Name="CustomRulesText"
                                  Height="180"

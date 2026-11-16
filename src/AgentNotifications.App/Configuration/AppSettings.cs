@@ -12,6 +12,8 @@ public sealed class AppSettings
 
     public bool GrokNotificationsEnabled { get; set; } = true;
 
+    public List<string> GrokHomeDirectories { get; set; } = [];
+
     public FeishuSettings Feishu { get; set; } = new();
 
     public List<SourceRuleSettings> SourceRules { get; set; } = [];

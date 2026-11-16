@@ -21,6 +21,7 @@ public sealed class AppController : IAsyncDisposable
     private readonly NotificationMonitor monitor;
     private readonly IWindowsNotificationSource notificationSource;
     private readonly CliCompletionService cliCompletion;
+    private readonly GrokSessionMonitor grokSessions;
     private AppSettings currentSettings;
     private string currentSecret;
     private DeliveryCounts counts = new(0, 0);
@@ -55,6 +56,8 @@ public sealed class AppController : IAsyncDisposable
         currentSecret = secret;
         cliCompletion = new CliCompletionService(paths, deliveryStore, () => currentSettings, clock,
             new WindowsToastPresenter().Show, deliveryQueue.Wake, logger);
+        grokSessions = new GrokSessionMonitor(paths, () => currentSettings, clock, logger);
+        grokSessions.StatusChanged += (_, status) => GrokSessionsChanged?.Invoke(this, status);
         logger.UpdateSettings(settings.Runtime);
         monitor.StateChanged += (_, state) => StateChanged?.Invoke(this, state);
         monitor.QueueChanged += (_, _) => deliveryQueue.Wake();
@@ -72,6 +75,10 @@ public sealed class AppController : IAsyncDisposable
 
     public event EventHandler<string>? StatusChanged;
 
+    public event EventHandler<GrokSessionStatus>? GrokSessionsChanged;
+
+    public GrokSessionStatus GrokSessions => grokSessions.Status;
+
     public AppSettings Settings => currentSettings;
 
     public string Secret => currentSecret;
@@ -88,6 +95,7 @@ public sealed class AppController : IAsyncDisposable
     {
         deliveryQueue.Start();
         cliCompletion.Start();
+        grokSessions.Start();
         if (currentSettings.IsConfigured && !string.IsNullOrWhiteSpace(currentSecret))
             await monitor.StartAsync(false, cancellationToken);
         else
@@ -177,6 +185,7 @@ public sealed class AppController : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         logger.Info("application.stopping", new { monitorState = monitor.State.ToString() });
+        await grokSessions.DisposeAsync();
         await cliCompletion.DisposeAsync();
         await monitor.DisposeAsync();
         await deliveryQueue.DisposeAsync();

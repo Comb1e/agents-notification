@@ -55,6 +55,9 @@ public sealed class SettingsStore
 
     public static void Validate(AppSettings settings)
     {
+        if (settings.GrokHomeDirectories is null || settings.GrokHomeDirectories.Count > CliIntegrationDefaults.GrokMaximumRoots
+            || settings.GrokHomeDirectories.Any(path => string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)))
+            throw new InvalidDataException("Grok data directories must be absolute paths");
         if (settings.Version != 1) throw new InvalidDataException("Unsupported settings version");
         if (settings.Feishu.Domain is not ("feishu" or "lark")) throw new InvalidDataException("Feishu domain must be feishu or lark");
         if (settings.Feishu.RecipientType is not ("email" or "open_id" or "user_id" or "union_id" or "chat_id"))
