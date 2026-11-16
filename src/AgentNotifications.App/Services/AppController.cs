@@ -20,6 +20,7 @@ public sealed class AppController : IAsyncDisposable
     private readonly DeliveryQueue deliveryQueue;
     private readonly NotificationMonitor monitor;
     private readonly IWindowsNotificationSource notificationSource;
+    private readonly CliCompletionService cliCompletion;
     private AppSettings currentSettings;
     private string currentSecret;
     private DeliveryCounts counts = new(0, 0);
@@ -52,6 +53,8 @@ public sealed class AppController : IAsyncDisposable
         this.notificationSource = notificationSource;
         currentSettings = settings;
         currentSecret = secret;
+        cliCompletion = new CliCompletionService(paths, deliveryStore, () => currentSettings, clock,
+            new WindowsToastPresenter().Show, deliveryQueue.Wake, logger);
         logger.UpdateSettings(settings.Runtime);
         monitor.StateChanged += (_, state) => StateChanged?.Invoke(this, state);
         monitor.QueueChanged += (_, _) => deliveryQueue.Wake();
@@ -84,6 +87,7 @@ public sealed class AppController : IAsyncDisposable
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         deliveryQueue.Start();
+        cliCompletion.Start();
         if (currentSettings.IsConfigured && !string.IsNullOrWhiteSpace(currentSecret))
             await monitor.StartAsync(false, cancellationToken);
         else
@@ -116,6 +120,7 @@ public sealed class AppController : IAsyncDisposable
             redactionPatternCount = settings.RedactionPatterns.Count,
             settings.MonitoringEnabled,
             settings.StartWithWindows,
+            settings.GrokNotificationsEnabled,
         });
         StatusChanged?.Invoke(this, "Settings saved");
     }
@@ -172,6 +177,7 @@ public sealed class AppController : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         logger.Info("application.stopping", new { monitorState = monitor.State.ToString() });
+        await cliCompletion.DisposeAsync();
         await monitor.DisposeAsync();
         await deliveryQueue.DisposeAsync();
         if (notificationSource is IDisposable disposable) disposable.Dispose();

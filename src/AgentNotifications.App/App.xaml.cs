@@ -1,5 +1,6 @@
 using AgentNotifications.App.Configuration;
 using AgentNotifications.App.Infrastructure;
+using AgentNotifications.App.Notifications;
 using AgentNotifications.App.Services;
 using System.Windows;
 using System.Windows.Threading;
@@ -19,13 +20,17 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        var grokCompletion = e.Args.Contains(CliIntegrationDefaults.GrokCompletionArgument, StringComparer.Ordinal);
         try
         {
             var openSettingsRequested = false;
-            singleInstance = new SingleInstanceCoordinator(sharedDirectory: AppPaths.Resolve().DataDirectory);
+            var paths = AppPaths.Resolve();
+            if (grokCompletion)
+                await new CliCompletionInbox(paths).WriteAsync(CliCompletionInbox.CaptureGrokEnvironment());
+            singleInstance = new SingleInstanceCoordinator(sharedDirectory: paths.DataDirectory);
             if (!singleInstance.IsPrimary)
             {
-                var signaled = await singleInstance.SignalPrimaryAsync();
+                var signaled = grokCompletion || await singleInstance.SignalPrimaryAsync();
                 await singleInstance.DisposeAsync();
                 singleInstance = null;
                 if (!signaled)
@@ -57,7 +62,8 @@ public partial class App : System.Windows.Application
         }
         catch (Exception exception)
         {
-            System.Windows.MessageBox.Show(exception.Message, "Agent Notifications", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!grokCompletion)
+                System.Windows.MessageBox.Show(exception.Message, "Agent Notifications", MessageBoxButton.OK, MessageBoxImage.Error);
             if (singleInstance is not null) await singleInstance.DisposeAsync();
             singleInstance = null;
             Shutdown(1);

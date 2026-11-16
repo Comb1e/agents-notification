@@ -1,17 +1,17 @@
 # Agent Notifications
 
-Agent Notifications is a Windows tray application that mirrors new Windows toasts from ChatGPT, Qoder, and ZCode to one Feishu or Lark destination. It reads the supported Windows notification API, leaves the original toast unchanged, and never replays notifications that were already present when the app started.
+Agent Notifications is a Windows tray application that mirrors new Windows toasts from ChatGPT, Qoder, and ZCode to one Feishu or Lark destination. Grok Build CLI completions produce both a Windows notification and a Feishu card. Existing desktop toasts are left unchanged and are never replayed at startup.
 
 ## Scope
 
 - Windows 10 version 1809 or later, one signed-in user, x64.
 - Packaged .NET 8 WPF application with `userNotificationListener` and `runFullTrust` capabilities.
-- ChatGPT, Qoder, and ZCode desktop applications. CLI-agent hooks are not included.
+- ChatGPT, Qoder, and ZCode desktop applications, plus Grok Build CLI turn-completion hooks.
 - One Feishu or Lark destination configured by `email`, `open_id`, `user_id`, `union_id`, or `chat_id`.
 - Full title and body forwarding after configured regex redaction.
 - Durable SQLite delivery, one-second update coalescing, retries, and in-place Feishu card updates.
 
-Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.1.5.
+Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.2.0.
 
 ## Build And Test
 
@@ -89,6 +89,20 @@ The app obtains an internal tenant access token, sends interactive cards, and pa
 
 The tray menu provides Settings, Pause/Resume, Send test, Start with Windows, and Exit. Launching Agent Notifications again opens Settings in the existing tray process instead of starting another listener.
 
+## Grok Build CLI
+
+After installing MSIX 0.2.0.0 or later and configuring Feishu, register the completion hook:
+
+```powershell
+.\scripts\Install-GrokHook.ps1
+```
+
+Run `/hooks` and Reload in existing Grok sessions, or restart them. A main-agent turn completion shows **Grok Build finished** in Windows and sends a Feishu card. Notifications contain the project name, session ID, and a fixed completion message. Session shutdowns, interruptions, errors, and subagent completions do not trigger this hook.
+
+**Sources → Grok Build CLI (Windows + Feishu)** enables the integration. **Pause forwarding** suppresses both channels. Unprocessed events expire after the configured delivery lifetime; Feishu uses the existing durable retry queue. The hook can start the tray app when it is closed, and finds the installed package again after upgrades. Re-running the installer replaces only its own hook and callback, leaving other Grok settings unchanged.
+
+Windows notification settings and Do not disturb can suppress banners. The hook uses Grok's `Stop` event; another `Stop` hook that blocks completion can keep Grok working after this event. Session/prompt IDs suppress repeated notifications for the same turn.
+
 ## Default Source Rules
 
 | Source | AppUserModelID rule |
@@ -107,6 +121,7 @@ The Settings window displays the packaged local data directory. It contains:
 - `secrets.dat`: App Secret encrypted with per-user Windows DPAPI.
 - `deliveries.db`: queue state, hashes, message IDs, timestamps, and outcomes.
 - `logs\*.jsonl`: metadata-only operational logs.
+- `cli-inbox\*.json`: bounded pending Grok completion events, removed after ingestion; abandoned temporary files expire with the delivery lifetime.
 
 Notification title and body are persisted only while delivery is pending. They are cleared after successful delivery. Delivered/dead-letter metadata is retained for seven days. Logs never intentionally contain notification text, access tokens, or the App Secret and are retained for seven days within the configured 50 MB total budget.
 
@@ -147,10 +162,11 @@ At sign-in, Windows notification services can take time to become ready. Agent N
 ## Design References
 
 - [Microsoft notification listener](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/notification-listener)
+- [Grok Build hooks](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/10-hooks.md), used for native Windows command-hook registration, completion payloads, and turn/session filtering.
 - [Microsoft app capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations)
 - [Microsoft.Windows.SDK.BuildTools.MSIX 1.7.260903100](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260903100)
 - [WinToastRelay](https://github.com/RavelloH/WinToastRelay), used as a reference for packaged listener, baseline, tray, and durable relay concepts; no code was copied.
-- [NotifAI](https://github.com/lc700x/NotifAI), used as a reference for app allow-list and notification mirror behavior; CLI hooks were deliberately excluded.
+- [NotifAI](https://github.com/lc700x/NotifAI), used as a reference for app allow-list and notification mirror behavior.
 - `E:\Projects\PulseCortex`, specifically `packages\feishu-adapter\src\cards.ts`, `packages\feishu-adapter\src\adapter.ts`, `packages\domain\src\text.ts`, `docs\operations.md`, and `docs\feishu-setup.md`, used for Feishu card escaping, redaction, bounded retry, and operational documentation patterns.
 
 No academic paper was needed for this platform integration; the implementation is based on operating-system/API documentation and the projects above.

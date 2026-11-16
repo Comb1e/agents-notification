@@ -2,6 +2,7 @@
   "version": 1,
   "monitoringEnabled": true,
   "startWithWindows": false,
+  "grokNotificationsEnabled": true,
   "feishu": {
     "domain": "feishu",
     "appId": "",

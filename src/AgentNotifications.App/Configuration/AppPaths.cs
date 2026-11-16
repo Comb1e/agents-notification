@@ -4,6 +4,8 @@ namespace AgentNotifications.App.Configuration;
 
 public sealed record AppPaths(string DataDirectory, string SettingsPath, string SecretsPath, string DatabasePath, string LogDirectory)
 {
+    public string CliInboxDirectory => Path.Combine(DataDirectory, CliIntegrationDefaults.InboxFolder);
+
     public static AppPaths Resolve()
     {
         string root;

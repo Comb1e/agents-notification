@@ -10,6 +10,8 @@ public sealed class AppSettings
 
     public bool StartWithWindows { get; set; }
 
+    public bool GrokNotificationsEnabled { get; set; } = true;
+
     public FeishuSettings Feishu { get; set; } = new();
 
     public List<SourceRuleSettings> SourceRules { get; set; } = [];
@@ -21,7 +23,7 @@ public sealed class AppSettings
     [JsonIgnore]
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Feishu.AppId)
         && !string.IsNullOrWhiteSpace(Feishu.Recipient)
-        && SourceRules.Any(rule => rule.Enabled);
+        && (GrokNotificationsEnabled || SourceRules.Any(rule => rule.Enabled));
 }
 
 public sealed class FeishuSettings

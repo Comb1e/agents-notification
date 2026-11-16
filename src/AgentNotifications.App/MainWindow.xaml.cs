@@ -65,6 +65,7 @@ public partial class MainWindow : Window
         ChatGPTCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.ChatGptName);
         QoderCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.QoderName);
         ZCodeCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.ZCodeName);
+        GrokCheck.IsChecked = settings.GrokNotificationsEnabled;
         CustomRulesText.Text = string.Join(Environment.NewLine, settings.SourceRules
             .Where(rule => !BuiltInSourceRules.IsBuiltInName(rule.Name))
             .Select(rule => $"{rule.Name}|{rule.MatchMode}|{rule.Pattern}"));
@@ -119,6 +120,7 @@ public partial class MainWindow : Window
             Version = 1,
             MonitoringEnabled = MonitoringCheck.IsChecked == true,
             StartWithWindows = StartupCheck.IsChecked == true,
+            GrokNotificationsEnabled = GrokCheck.IsChecked == true,
             Feishu = new FeishuSettings
             {
                 Domain = SelectedTag(DomainCombo),

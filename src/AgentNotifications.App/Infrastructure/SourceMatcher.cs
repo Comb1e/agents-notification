@@ -19,6 +19,7 @@ public sealed class SourceMatcher
 
     public string? Match(string appUserModelId)
     {
+        if (appUserModelId.StartsWith("Comb1e.AgentNotifications_", StringComparison.OrdinalIgnoreCase)) return null;
         if (appUserModelId.Contains("!CodexCoreCommandRunner", StringComparison.OrdinalIgnoreCase)) return null;
         foreach (var (rule, regex) in rules)
         {
