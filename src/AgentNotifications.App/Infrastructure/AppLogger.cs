@@ -39,7 +39,7 @@ public sealed class AppLogger
                 .EnumerateFiles("*.jsonl")
                 .OrderBy(file => file.LastWriteTimeUtc)
                 .ToList();
-            foreach (var file in files.Where(file => file.LastWriteTimeUtc < cutoff))
+            foreach (var file in files.Where(file => file.LastWriteTimeUtc < cutoff).ToArray())
             {
                 TryDelete(file);
                 files.Remove(file);

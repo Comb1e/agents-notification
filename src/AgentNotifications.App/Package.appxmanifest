@@ -9,7 +9,7 @@
   <Identity
     Name="Comb1e.AgentNotifications"
     Publisher="CN=Agent Notifications Development"
-    Version="0.1.5.1"
+    Version="0.1.5.2"
     ProcessorArchitecture="x64" />
   <Properties>
     <DisplayName>Agent Notifications</DisplayName>
