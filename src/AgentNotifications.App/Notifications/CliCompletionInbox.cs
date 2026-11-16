@@ -5,7 +5,15 @@ using AgentNotifications.App.Infrastructure;
 namespace AgentNotifications.App.Notifications;
 
 public sealed record CliCompletion(Guid EventId, string Source, string SessionId, DateTimeOffset CompletedAt,
-    string Workspace, string Message);
+    string Workspace, string Message)
+{
+    public static CliCompletion FromGrokTurn(string sessionId, string? promptId, string workspace, DateTimeOffset completedAt) => new(
+        string.IsNullOrWhiteSpace(promptId) ? Guid.NewGuid()
+            : Guid.ParseExact(TextTools.Sha256($"{CliIntegrationDefaults.GrokSourceId}\u001f{sessionId}\u001f{promptId}")[..32], "N"),
+        CliIntegrationDefaults.GrokSourceId, sessionId, completedAt,
+        TextTools.LimitRunes(Path.GetFileName(Path.TrimEndingDirectorySeparator(workspace)), CliIntegrationDefaults.MaximumLabelRunes),
+        "Grok has finished its turn.");
+}
 
 public sealed class CliCompletionInbox(AppPaths paths)
 {
@@ -20,14 +28,11 @@ public sealed class CliCompletionInbox(AppPaths paths)
         if (string.IsNullOrWhiteSpace(workspace)) workspace = Environment.CurrentDirectory;
         var message = Environment.GetEnvironmentVariable("GROK_MESSAGE");
         var promptId = Environment.GetEnvironmentVariable("GROK_PROMPT_ID");
-        var eventId = string.IsNullOrWhiteSpace(promptId) ? Guid.NewGuid()
-            : Guid.ParseExact(TextTools.Sha256($"{CliIntegrationDefaults.GrokSourceId}\u001f{sessionId}\u001f{promptId}")[..32], "N");
-        return new CliCompletion(eventId, CliIntegrationDefaults.GrokSourceId, sessionId,
+        var completion = CliCompletion.FromGrokTurn(sessionId, promptId, workspace,
             DateTimeOffset.TryParse(Environment.GetEnvironmentVariable("GROK_COMPLETED_AT"), out var completedAt)
-                ? completedAt : DateTimeOffset.UtcNow,
-            TextTools.LimitRunes(Path.GetFileName(Path.TrimEndingDirectorySeparator(workspace)), CliIntegrationDefaults.MaximumLabelRunes),
-            TextTools.LimitRunes(string.IsNullOrWhiteSpace(message) ? "Grok has finished its turn." : message,
-                CliIntegrationDefaults.MaximumMessageRunes));
+                ? completedAt : DateTimeOffset.UtcNow);
+        return completion with { Message = TextTools.LimitRunes(string.IsNullOrWhiteSpace(message) ? completion.Message : message,
+            CliIntegrationDefaults.MaximumMessageRunes) };
     }
 
     public async Task WriteAsync(CliCompletion completion, CancellationToken cancellationToken = default)

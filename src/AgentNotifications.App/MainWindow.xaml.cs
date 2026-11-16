@@ -18,6 +18,8 @@ public partial class MainWindow : Window
         LoadSettings();
         controller.StateChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
         controller.CountsChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
+        controller.GrokSessionsChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
+        controller.AgentInstructionsChanged += (_, _) => Dispatcher.Invoke(RefreshStatus);
         controller.StatusChanged += (_, status) => Dispatcher.Invoke(() => FooterStatusText.Text = status);
         Closing += OnClosing;
     }
@@ -49,6 +51,26 @@ public partial class MainWindow : Window
         };
         CountsText.Text = $"Pending {controller.Counts.Pending}  |  Failed {controller.Counts.Failed}";
         AccessStatusText.Text = $"Notification access: {controller.NotificationAccess}";
+        var grok = controller.GrokSessions;
+        GrokSessionsText.Text = !controller.Settings.GrokNotificationsEnabled ? "Grok notifications disabled"
+            : !controller.Settings.MonitoringEnabled ? "Grok notifications paused"
+            : grok.OpenSessions > 0 ? $"{grok.OpenSessions} open sessions · {grok.Processes} processes"
+            : "Watching for Grok sessions";
+        var instructions = controller.AgentInstructions;
+        InstructionSyncStatusText.Text = instructions.State switch
+        {
+            AgentInstructionState.Disabled => "Sync disabled",
+            AgentInstructionState.AwaitingSource => "Waiting for source file",
+            AgentInstructionState.Settling => "Waiting for save to finish…",
+            AgentInstructionState.Syncing => $"Updating {instructions.PendingFiles} files…",
+            AgentInstructionState.Retrying => instructions.PendingFiles > 0
+                ? $"Retrying {instructions.PendingFiles} files" : "Source file unavailable — retrying",
+            _ => instructions.Files.Count > 0 ? $"{instructions.Files.Count} files up to date" : "No existing instruction files found",
+        };
+        InstructionSyncTimeText.Text = instructions.LastSyncedAt is { } syncedAt
+            ? $"Last synced {syncedAt.ToLocalTime():g}" : string.Empty;
+        if (!InstructionFilesList.Items.Cast<string>().SequenceEqual(instructions.Files))
+            InstructionFilesList.ItemsSource = instructions.Files;
     }
 
     private void LoadSettings()
@@ -66,6 +88,8 @@ public partial class MainWindow : Window
         QoderCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.QoderName);
         ZCodeCheck.IsChecked = IsSourceEnabled(settings, BuiltInSourceRules.ZCodeName);
         GrokCheck.IsChecked = settings.GrokNotificationsEnabled;
+        InstructionSyncCheck.IsChecked = settings.AgentInstructions.Enabled;
+        InstructionSourceText.Text = settings.AgentInstructions.SourcePath;
         CustomRulesText.Text = string.Join(Environment.NewLine, settings.SourceRules
             .Where(rule => !BuiltInSourceRules.IsBuiltInName(rule.Name))
             .Select(rule => $"{rule.Name}|{rule.MatchMode}|{rule.Pattern}"));
@@ -112,6 +136,15 @@ public partial class MainWindow : Window
         FooterStatusText.Text = $"Queued {count} failed deliveries";
     }
 
+    private void BrowseInstructionSource_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose shared agent instructions", Filter = "Markdown files (*.md)|*.md", CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) == true) InstructionSourceText.Text = dialog.FileName;
+    }
+
     private AppSettings BuildSettings()
     {
         var current = controller.Settings;
@@ -121,6 +154,12 @@ public partial class MainWindow : Window
             MonitoringEnabled = MonitoringCheck.IsChecked == true,
             StartWithWindows = StartupCheck.IsChecked == true,
             GrokNotificationsEnabled = GrokCheck.IsChecked == true,
+            GrokHomeDirectories = current.GrokHomeDirectories.ToList(),
+            AgentInstructions = new AgentInstructionSettings
+            {
+                Enabled = InstructionSyncCheck.IsChecked == true,
+                SourcePath = InstructionSourceText.Text.Trim(),
+            },
             Feishu = new FeishuSettings
             {
                 Domain = SelectedTag(DomainCombo),

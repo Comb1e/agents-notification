@@ -1,17 +1,17 @@
 # Agent Notifications
 
-Agent Notifications is a Windows tray application that mirrors new Windows toasts from ChatGPT, Qoder, and ZCode to one Feishu or Lark destination. Grok Build CLI completions produce both a Windows notification and a Feishu card. Existing desktop toasts are left unchanged and are never replayed at startup.
+Agent Notifications is a Windows tray application that mirrors new Windows toasts from ChatGPT, Qoder, and ZCode to one Feishu or Lark destination. Grok Build CLI completions produce both a Windows notification and a Feishu card. It also synchronizes a shared Markdown instruction file to existing coding-agent instruction files. Existing desktop toasts are left unchanged and are never replayed at startup.
 
 ## Scope
 
 - Windows 10 version 1809 or later, one signed-in user, x64.
 - Packaged .NET 8 WPF application with `userNotificationListener` and `runFullTrust` capabilities.
-- ChatGPT, Qoder, and ZCode desktop applications, plus Grok Build CLI turn-completion hooks.
+- ChatGPT, Qoder, and ZCode desktop applications, plus automatic Grok Build CLI completion detection.
 - One Feishu or Lark destination configured by `email`, `open_id`, `user_id`, `union_id`, or `chat_id`.
 - Full title and body forwarding after configured regex redaction.
 - Durable SQLite delivery, one-second update coalescing, retries, and in-place Feishu card updates.
 
-Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.2.0.
+Historical replay, remote control, notification actions, notification images, Windows services, and inbound Feishu events are outside v0.3.0.
 
 ## Build And Test
 
@@ -91,17 +91,21 @@ The tray menu provides Settings, Pause/Resume, Send test, Start with Windows, an
 
 ## Grok Build CLI
 
-After installing MSIX 0.2.0.0 or later and configuring Feishu, register the completion hook:
+Install MSIX 0.2.1.2 or later, configure Feishu, and keep Agent Notifications running in the tray. **Sources → Grok Build CLI (Windows + Feishu)** enables automatic detection and displays the number of open Grok sessions and processes. Already-running sessions are discovered automatically; no Grok restart or hook installation is needed.
 
-```powershell
-.\scripts\Install-GrokHook.ps1
-```
+Each new successful main-agent `turn_completed` record produces **Grok Build finished** in Windows and a Feishu card with the project name, session ID, and a fixed completion message. Earlier history, cancellations, errors, and subagent sessions are excluded. **Pause forwarding** suppresses new completions on both channels. Repeated records are deduplicated and Feishu delivery retains the existing retry behavior.
 
-Run `/hooks` and Reload in existing Grok sessions, or restart them. A main-agent turn completion shows **Grok Build finished** in Windows and sends a Feishu card. Notifications contain the project name, session ID, and a fixed completion message. Session shutdowns, interruptions, errors, and subagent completions do not trigger this hook.
+The app reads Grok's local session store in `%USERPROFILE%\.grok`, the app's `GROK_HOME` environment override, and any absolute paths in `grokHomeDirectories` in `config.json`. Windows notification settings and Do not disturb can suppress banners. Upgrading removes the app's former hook registration; already-loaded legacy callbacks remain compatible until those Grok sessions exit.
 
-**Sources → Grok Build CLI (Windows + Feishu)** enables the integration. **Pause forwarding** suppresses both channels. Unprocessed events expire after the configured delivery lifetime; Feishu uses the existing durable retry queue. The hook can start the tray app when it is closed, and finds the installed package again after upgrades. Re-running the installer replaces only its own hook and callback, leaving other Grok settings unchanged.
+## Shared Agent Instructions
 
-Windows notification settings and Do not disturb can suppress banners. The hook uses Grok's `Stop` event; another `Stop` hook that blocks completion can keep Grok working after this event. Session/prompt IDs suppress repeated notifications for the same turn.
+1. Keep the shared instructions in this project's `agents\AGENTS.md`.
+2. Open **Settings → Agent files**, select that file with **Browse**, enable automatic sync, and **Save**.
+3. Keep the tray app running. The tab displays detected files, sync status, and the last successful sync.
+
+The app checks the source every second, waits for its contents to settle, and copies its exact bytes to existing instruction files in agent folders such as `C:\Users\<user>\.codex`, `.grok`, `.claude`, `.qoder`, and `.zcode`. It scans accessible user profiles and `.config\<agent>` folders. Detection uses existing filenames: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `GROK.md`, `QODER.md`, `ZCODE.md`, and `copilot-instructions.md`, ignoring case. Both files are updated if a folder contains more than one matching name. Original filenames and casing stay unchanged; no instruction files are created in folders that lack them, and project/skill subdirectories are excluded.
+
+Sync runs on app startup, source content changes, and discovery of a new target. Files already matching the source are left untouched. Locked or inaccessible targets retry independently; copying waits for stable source contents. Missing sources retain the current target contents. Symbolic links and junctions are skipped. Sources up to 1 MiB are supported. Disable sync with its own checkbox; notification forwarding and Feishu configuration are independent of this feature.
 
 ## Default Source Rules
 
@@ -162,7 +166,8 @@ At sign-in, Windows notification services can take time to become ready. Agent N
 ## Design References
 
 - [Microsoft notification listener](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/notification-listener)
-- [Grok Build hooks](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/10-hooks.md), used for native Windows command-hook registration, completion payloads, and turn/session filtering.
+- [Microsoft file-system change behavior](https://learn.microsoft.com/en-us/dotnet/api/system.io.filesystemwatcher), used to choose stable content polling across editor save/rename operations, and [atomic file replacement](https://learn.microsoft.com/en-us/dotnet/api/system.io.file.replace), used to retain existing destination filenames and access controls.
+- [Grok Build session storage](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/17-sessions.md), used for automatic session discovery and incremental completion detection; local completion records were checked against Grok Build 1.0.77.
 - [Microsoft app capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations)
 - [Microsoft.Windows.SDK.BuildTools.MSIX 1.7.260903100](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260903100)
 - [WinToastRelay](https://github.com/RavelloH/WinToastRelay), used as a reference for packaged listener, baseline, tray, and durable relay concepts; no code was copied.
