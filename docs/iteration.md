@@ -1,0 +1,228 @@
+# Iteration History
+
+## 0.1.5 - 2026-10-07
+
+### Previous Version Issue
+
+- The enabled packaged startup task created the process at Windows sign-in, but notification initialization could block before the listener reached `Watching`.
+- Separate packaged activations could also bypass the named-mutex ownership check and leave more than one process waiting on the same startup path.
+
+### Root Cause
+
+- The first `GetNotificationsAsync` call had no effective cancellation boundary. Windows notification services are not guaranteed to be ready when login startup apps begin.
+- An initial snapshot failure escaped application initialization and stopped the tray instead of using the listener state machine's existing `Retrying` path.
+- The per-user named mutex and pipe were not a reliable shared boundary across the desktop AppX activation containers observed on this Windows installation.
+
+### Improvement
+
+- Bound every notification snapshot to the configurable `notificationReadTimeoutMilliseconds` value, defaulting to ten seconds, and pass cancellation into the WinRT operation.
+- Keep the tray and delivery queue alive after an initial read failure, transition `Baselining -> Retrying`, and retry through normal reconciliation.
+- Preserve the original startup cutoff during recovery so old Action Center entries remain suppressed.
+- Replace named-kernel-object coordination with a LocalState file lock and append-only activation signal shared by packaged launches.
+- Bumped the application and MSIX version to `0.1.5` / `0.1.5.1`.
+
+### Verification
+
+- Release solution build passed with zero warnings and zero errors.
+- Focused notification-monitor and single-instance tests passed: 10 passed, 0 failed. Focused settings and card tests passed: 5 passed, 0 failed.
+- Tests cover the original successful baseline, a failed initial snapshot followed by recovery, no historical replay during recovery, a permanently blocked read timing out, timeout validation boundaries, and secondary activation reaching only the primary instance.
+- Signed x64 MSIX `0.1.5.1` was created with a valid signature and upgraded the installed package in place with status `Ok`.
+- The existing Windows startup task remained enabled after upgrade. Directly launching the installed executable declared by that task reached `Watching` and wrote `application.started` against packaged LocalState.
+- Five additional package activations produced exactly one responsive process and opened Settings in the primary instance.
+
+### Remaining Issues
+
+- A complete startup-task launch still depends on Windows enabling the task for the signed-in user.
+- Sign-in itself cannot be automated in the test suite; the retry path is exercised with a cancellation-aware fake source and the installed packaged activation is checked separately.
+
+### References Used
+
+- Microsoft [Notification listener](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/notification-listener), rechecked for access-status, snapshot, and foreground change-event behavior.
+- Local AppModel runtime events and packaged LocalState logs from October 1-7, 2026 showed Windows creating the process while application initialization did not reach its startup log.
+- No external project or academic paper was needed for this lifecycle fix.
+
+## 0.1.4 - 2026-09-21
+
+### Previous Version Issue
+
+- Notifications from the current ZCode desktop registration did not reach Feishu.
+- ChatGPT, Qoder, Feishu test delivery, retries, and older ZCode notifications continued to work.
+
+### Root Cause
+
+- ZCode changed its registered AppUserModelID from `electron.app.ZCode` to `dev.zcode.app`.
+- The built-in ZCode rule was an exact match for only the older identity, so the listener filtered current ZCode notifications before persistence and delivery.
+- Existing user settings retained that legacy exact rule across MSIX upgrades.
+
+### Improvement
+
+- Match both known ZCode desktop identities with the anchored regex `^(?:electron\.app\.ZCode|dev\.zcode\.app)$`.
+- Persistently migrate only the legacy built-in exact rule during settings load while preserving its enabled state.
+- Centralize built-in source-rule construction so Settings cannot restore the stale identity.
+- Bumped the application and MSIX version to `0.1.4` / `0.1.4.1`.
+
+### Verification
+
+- `Get-StartApps` independently confirmed the installed ZCode registration is `dev.zcode.app`.
+- `dotnet format AgentNotifications.sln --verify-no-changes --no-restore`: passed.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 49 passed, 0 failed.
+- Tests cover current and legacy ZCode IDs, anchored near-miss rejection, monitor enqueueing, persistent migration, disabled-state preservation, and custom-rule preservation.
+- Signed x64 MSIX `0.1.4.1` was created with a valid signature and upgraded the installed package in place with status `Ok`.
+- The installed app persisted the migrated ZCode regex and remained one process after five launch attempts.
+- A new Windows toast submitted under the registered `dev.zcode.app` identity traversed the installed listener and completed Feishu delivery as source `ZCode`.
+
+### Remaining Issues
+
+- A future ZCode identity change will require another explicit rule update or a user-defined source rule.
+- The end-to-end check used a controlled toast under ZCode's registered identity; a vendor-authored toast still requires a ZCode agent task to finish after the upgraded listener has started.
+
+### References Used
+
+- Local Windows `Get-StartApps` registration reported ZCode as `dev.zcode.app` on September 21, 2026.
+- Existing metadata-only delivery logs confirmed successful legacy ZCode deliveries under `electron.app.ZCode` and healthy ChatGPT/Qoder/Feishu delivery behavior. No notification content or secrets were inspected.
+- No external project or academic paper was needed for this compatibility fix.
+
+## 0.1.3 - 2026-09-19
+
+### Previous Version Issue
+
+- The package and tray used generated placeholder icons instead of the supplied application artwork.
+
+### Root Cause
+
+- The asset generator drew a built-in bell and the tray explicitly used `SystemIcons.Information`.
+
+### Improvement
+
+- Added `icon/icon.png` as the source artwork.
+- Generate 44, 50, 150, and 256 pixel PNG assets with alpha and high-quality bicubic scaling.
+- Use the supplied artwork for the MSIX package, WPF window, and system tray.
+- Bumped the application and MSIX version to `0.1.3` / `0.1.3.0`.
+
+### Verification
+
+- Generated assets are 44, 50, 150, and 256 pixels square and retain PNG alpha.
+- `dotnet format AgentNotifications.sln --verify-no-changes --no-restore`: passed.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 45 passed, 0 failed.
+- Signed x64 MSIX `0.1.3.0` was created with a valid signature.
+- The installed package upgraded in place from `0.1.2.0` to `0.1.3.0` and reported status `Ok`.
+- Five package launch attempts produced exactly one running `AgentNotifications.App` process.
+
+### Remaining Issues
+
+- Windows can retain cached Start menu artwork briefly after an upgrade; signing out or rebuilding the icon cache refreshes stale shell thumbnails.
+
+## 0.1.2 - 2026-09-19
+
+### Previous Version Issue
+
+- Every Start menu or package launch created another hidden tray process.
+- Concurrent instances opened the same SQLite database, registered duplicate notification listeners, and could forward the same toast more than once.
+
+### Root Cause
+
+- The WPF entry point had no per-user process ownership or activation forwarding.
+- A configured primary instance intentionally hides its Settings window, so a second launch appeared to do nothing while still creating another process.
+
+### Improvement
+
+- Added a per-user named mutex that permits one primary process.
+- Added a per-user named pipe so a secondary launch asks the primary process to open Settings, then exits.
+- Bumped the application and MSIX version to `0.1.2` / `0.1.2.0`.
+
+### Verification
+
+- Added a regression test that creates primary and secondary coordinators and verifies activation reaches only the primary instance.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 45 passed, 0 failed.
+- Signed x64 MSIX `0.1.2.0` was created with a valid signature and upgraded in place with package status `Ok`.
+- Five Start menu launch attempts produced exactly one running `AgentNotifications.App` process.
+
+### Remaining Issues
+
+- A forced process termination can interrupt an in-flight Feishu request; SQLite restart recovery returns that row to the retry queue.
+
+## 0.1.1 - 2026-09-19
+
+### Previous Version Issue
+
+- Feishu rejected test delivery with error `300302` because the interactive card declared `config.update_multi` as `false`.
+
+### Root Cause
+
+- The card schema disabled multi-update behavior even though Agent Notifications updates a previously delivered card when the Windows toast content changes.
+
+### Improvement
+
+- Changed every generated card to declare `config.update_multi` as `true`.
+- Added a regression assertion that reads the serialized card JSON and requires the setting to remain enabled.
+- Bumped the application and MSIX version to `0.1.1` / `0.1.1.0`.
+
+### Verification
+
+- Automated card tests verify update support, markdown escaping, and Unicode-safe limits.
+- `dotnet build AgentNotifications.sln -c Release`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Release --no-build --no-restore`: 44 passed, 0 failed.
+- Signed x64 MSIX `0.1.1.0` was created with a valid signature.
+- The installed package upgraded in place from `0.1.0.0` to `0.1.1.0`, reported status `Ok`, and was relaunched.
+- A live Feishu test delivery succeeded after the card update setting was corrected.
+
+### Remaining Issues
+
+- Real ChatGPT, Qoder, and ZCode delivery checks still require the installed package and Windows notification permission.
+
+## 0.1.0 - 2026-09-19
+
+### Previous State And Issues
+
+- No independent Windows application existed for forwarding coding-agent desktop notifications to Feishu.
+- Existing Action Center notifications could be mistaken for new work unless startup established a baseline.
+- Event-only listening could miss a change; polling-only listening would add delay and repeated reads.
+- Network failures, application restarts, and changed toasts required durable state instead of an in-memory queue.
+- Notification bodies and the Feishu App Secret needed different storage and retention rules.
+
+### Root Causes And Method
+
+- Windows notification access is a permissioned packaged-app API, so the project uses an MSIX WPF application with `userNotificationListener` and full-trust execution.
+- `NotificationChanged` does not carry the complete changed notification, so every event triggers a snapshot delta and a 15-second reconciliation recovers missed events.
+- A toast can change while an earlier revision is being sent, so SQLite updates are guarded by both toast key and content hash.
+- Feishu access tokens expire and HTTP failures have different recovery rules, so the client classifies authentication, rate-limit, missing-message, transient, and permanent failures.
+- Complex listener and delivery transitions are encoded as explicit state machines and tested against invalid transitions.
+
+### Improvements In This Version
+
+- Added the .NET 8 WPF tray app, xUnit project, MSIX manifest, package assets, and build/install scripts.
+- Added first-run Settings for notification access, Feishu/Lark credentials, recipient type/value, source rules, redaction, test delivery, and startup.
+- Added ChatGPT, Qoder, and ZCode matchers and excluded ChatGPT `CodexCoreCommandRunner` notifications.
+- Added startup baseline suppression, event reconciliation, duplicate suppression, one-second coalescing, and revocation handling.
+- Added DPAPI App Secret storage, JSON settings, SQLite WAL delivery state, seven-day metadata retention, and metadata-only logs.
+- Added Feishu/Lark tenant-token caching, interactive cards, Unicode-safe limits, card patching, replacement sends, and typed retry behavior.
+- Added a direct tray startup toggle and settings health status.
+
+### Verification
+
+- `dotnet build AgentNotifications.sln -c Debug`: passed with zero warnings and zero errors.
+- `dotnet test AgentNotifications.sln -c Debug --no-restore`: 44 passed, 0 failed.
+- Automated coverage includes state transitions, source matching, baseline suppression, remove/reappear ordering, duplicate IDs across apps, empty toast content, permission denial/revocation, deduplication, coalescing, restart recovery, redaction, Unicode limits, deterministic retry bounds, token refresh, invalid credentials, timeouts, 4xx/5xx classification, rate limits, card patching, missing-message replacement, expiry, and secret-free delivery logs.
+- Release MSIX creation passed with `Microsoft.Windows.SDK.BuildTools.MSIX` 1.7.260903100.
+- The development MSIX is signed. Installation, startup-task, upgrade, uninstall, and visual checks require the generated certificate to be trusted in `LocalMachine\TrustedPeople` first.
+
+### Remaining Risks
+
+- Live Feishu delivery was not run because no App ID, App Secret, or recipient was supplied.
+- Real ChatGPT, Qoder, and ZCode toast checks still require the installed package, user-approved notification permission, and notifications from those applications.
+- Vendor AppUserModelIDs can change; custom exact/regex rules are available for that case.
+- The development certificate is for local sideloading only. A production release needs a production signing identity or Microsoft Store signing.
+- Regex redaction reduces accidental disclosure but cannot identify every secret format.
+
+### References Used
+
+- Microsoft: [Notification listener](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/notification-listener) and [app capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations).
+- Microsoft package tool: [Microsoft.Windows.SDK.BuildTools.MSIX 1.7.260903100](https://www.nuget.org/packages/Microsoft.Windows.SDK.BuildTools.MSIX/1.7.260903100).
+- Feishu: [tenant access token](https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal), [send message](https://open.feishu.cn/document/server-docs/im-v1/message/create), and [update message](https://open.feishu.cn/document/server-docs/im-v1/message/patch).
+- [WinToastRelay](https://github.com/RavelloH/WinToastRelay), used for notification-listener, baseline, tray, startup, and durable relay design comparison. No code copied.
+- [NotifAI](https://github.com/lc700x/NotifAI), used for notification mirroring and source allow-list comparison. Its CLI hook path is outside this project. No code copied.
+- Local `E:\Projects\PulseCortex`: `packages\feishu-adapter\src\cards.ts`, `packages\feishu-adapter\src\adapter.ts`, `packages\domain\src\text.ts`, `docs\operations.md`, and `docs\feishu-setup.md`. These informed card escaping, redaction order, jittered retry, log retention, and operator setup wording. No code copied.
+- No academic paper was used; primary platform/API documentation and working open-source projects were the relevant sources.

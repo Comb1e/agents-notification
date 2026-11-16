@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "monitoringEnabled": true,
+  "startWithWindows": false,
+  "grokNotificationsEnabled": true,
+  "feishu": {
+    "domain": "feishu",
+    "appId": "",
+    "recipientType": "email",
+    "recipient": ""
+  },
+  "sourceRules": [
+    {
+      "name": "ChatGPT",
+      "pattern": "^OpenAI\\.Codex_[^!]+!App$",
+      "matchMode": "regex",
+      "enabled": true
+    },
+    {
+      "name": "Qoder",
+      "pattern": "com.qoder.app",
+      "matchMode": "exact",
+      "enabled": true
+    },
+    {
+      "name": "ZCode",
+      "pattern": "^(?:electron\\.app\\.ZCode|dev\\.zcode\\.app)$",
+      "matchMode": "regex",
+      "enabled": true
+    }
+  ],
+  "redactionPatterns": [],
+  "runtime": {
+    "notificationReadTimeoutMilliseconds": 10000,
+    "debounceMilliseconds": 1000,
+    "reconcileSeconds": 15,
+    "dispatcherPollMilliseconds": 500,
+    "retryBaseMilliseconds": 1000,
+    "retryMaximumMinutes": 15,
+    "deliveryExpiryHours": 24,
+    "metadataRetentionDays": 7,
+    "logRetentionDays": 7,
+    "logMaximumBytes": 50000000,
+    "cardTitleMaximumRunes": 100,
+    "cardBodyMaximumRunes": 3000
+  }
+}
