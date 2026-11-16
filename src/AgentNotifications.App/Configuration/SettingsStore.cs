@@ -55,6 +55,11 @@ public sealed class SettingsStore
 
     public static void Validate(AppSettings settings)
     {
+        if (settings.AgentInstructions is null || settings.AgentInstructions.SourcePath is null
+            || (!string.IsNullOrWhiteSpace(settings.AgentInstructions.SourcePath)
+                && (!Path.IsPathFullyQualified(settings.AgentInstructions.SourcePath)
+                    || !Path.GetExtension(settings.AgentInstructions.SourcePath).Equals(".md", StringComparison.OrdinalIgnoreCase))))
+            throw new InvalidDataException("Agent instruction source must be an absolute Markdown file path");
         if (settings.GrokHomeDirectories is null || settings.GrokHomeDirectories.Count > CliIntegrationDefaults.GrokMaximumRoots
             || settings.GrokHomeDirectories.Any(path => string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)))
             throw new InvalidDataException("Grok data directories must be absolute paths");

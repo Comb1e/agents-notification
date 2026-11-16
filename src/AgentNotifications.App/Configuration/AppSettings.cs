@@ -14,6 +14,8 @@ public sealed class AppSettings
 
     public List<string> GrokHomeDirectories { get; set; } = [];
 
+    public AgentInstructionSettings AgentInstructions { get; set; } = new();
+
     public FeishuSettings Feishu { get; set; } = new();
 
     public List<SourceRuleSettings> SourceRules { get; set; } = [];
@@ -26,6 +28,13 @@ public sealed class AppSettings
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Feishu.AppId)
         && !string.IsNullOrWhiteSpace(Feishu.Recipient)
         && (GrokNotificationsEnabled || SourceRules.Any(rule => rule.Enabled));
+}
+
+public sealed class AgentInstructionSettings
+{
+    public bool Enabled { get; set; } = true;
+
+    public string SourcePath { get; set; } = string.Empty;
 }
 
 public sealed class FeishuSettings

@@ -5,8 +5,9 @@
 - `src/AgentNotifications.App/Notifications`: Windows notification-listener adapter, native toast presenter, CLI event inbox, and Grok completion-record parsing.
 - `src/AgentNotifications.App/Persistence`: SQLite delivery queue and retained metadata.
 - `src/AgentNotifications.App/Feishu`: Feishu/Lark HTTP client and interactive-card construction.
-- `src/AgentNotifications.App/Infrastructure`: logging, retry, text, source matching, bounded JSONL tailing, state machines, and single-instance coordination.
-- `src/AgentNotifications.App/Services`: application composition, delivery processing, automatic Grok session discovery, CLI completion ingestion, and Windows startup-task management.
+- `src/AgentNotifications.App/Infrastructure`: logging, retry, text, source matching, bounded JSONL tailing, instruction-file discovery, atomic file replacement, state machines, and single-instance coordination.
+- `src/AgentNotifications.App/Services`: application composition, delivery processing, automatic Grok session discovery, CLI completion ingestion, shared agent-instruction synchronization, and Windows startup-task management.
+- `agents/AGENTS.md`: user-maintained source for global coding-agent instruction files.
 - `tests/AgentNotifications.Tests`: focused xUnit coverage using fake notification and Feishu boundaries.
 - `scripts`: package asset, certificate, MSIX build, install, and uninstall workflows.
 - `docs/architecture.md`: current responsibilities, data flow, storage, states, decisions, constraints, and failure paths.

@@ -22,6 +22,7 @@ public sealed class AppController : IAsyncDisposable
     private readonly IWindowsNotificationSource notificationSource;
     private readonly CliCompletionService cliCompletion;
     private readonly GrokSessionMonitor grokSessions;
+    private readonly AgentInstructionSync agentInstructions;
     private AppSettings currentSettings;
     private string currentSecret;
     private DeliveryCounts counts = new(0, 0);
@@ -58,6 +59,8 @@ public sealed class AppController : IAsyncDisposable
             new WindowsToastPresenter().Show, deliveryQueue.Wake, logger);
         grokSessions = new GrokSessionMonitor(paths, () => currentSettings, clock, logger);
         grokSessions.StatusChanged += (_, status) => GrokSessionsChanged?.Invoke(this, status);
+        agentInstructions = new AgentInstructionSync(() => currentSettings, clock, logger);
+        agentInstructions.StatusChanged += (_, status) => AgentInstructionsChanged?.Invoke(this, status);
         logger.UpdateSettings(settings.Runtime);
         monitor.StateChanged += (_, state) => StateChanged?.Invoke(this, state);
         monitor.QueueChanged += (_, _) => deliveryQueue.Wake();
@@ -79,6 +82,10 @@ public sealed class AppController : IAsyncDisposable
 
     public GrokSessionStatus GrokSessions => grokSessions.Status;
 
+    public event EventHandler<AgentInstructionStatus>? AgentInstructionsChanged;
+
+    public AgentInstructionStatus AgentInstructions => agentInstructions.Status;
+
     public AppSettings Settings => currentSettings;
 
     public string Secret => currentSecret;
@@ -96,6 +103,7 @@ public sealed class AppController : IAsyncDisposable
         deliveryQueue.Start();
         cliCompletion.Start();
         grokSessions.Start();
+        agentInstructions.Start();
         if (currentSettings.IsConfigured && !string.IsNullOrWhiteSpace(currentSecret))
             await monitor.StartAsync(false, cancellationToken);
         else
@@ -186,6 +194,7 @@ public sealed class AppController : IAsyncDisposable
     {
         logger.Info("application.stopping", new { monitorState = monitor.State.ToString() });
         await grokSessions.DisposeAsync();
+        await agentInstructions.DisposeAsync();
         await cliCompletion.DisposeAsync();
         await monitor.DisposeAsync();
         await deliveryQueue.DisposeAsync();
